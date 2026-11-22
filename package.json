@@ -1,0 +1,29 @@
+{
+  "name": "notely-advanced-notepad",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Notely — a beautiful, feature-rich notepad browser extension",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run icons && tsc -b && vite build",
+    "build:fast": "vite build",
+    "icons": "node scripts/generate-icons.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^5.0.4",
+    "typescript": "^5.7.2",
+    "vite": "^7.1.0"
+  }
+}

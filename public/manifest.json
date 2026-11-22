@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "Notely — Advanced Notepad",
+  "short_name": "Notely",
+  "version": "1.0.0",
+  "description": "A beautiful, feature-rich notepad for your browser. Write, organize, capture and find your notes instantly.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Open Notely",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "sidePanel",
+    "notifications",
+    "commands"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+N" },
+      "description": "Open Notely popup"
+    },
+    "quick-note": {
+      "suggested_key": { "default": "Ctrl+Shift+Y" },
+      "description": "Create a quick note"
+    },
+    "save-selection": {
+      "suggested_key": { "default": "Ctrl+Shift+S" },
+      "description": "Save selected text to Notely"
+    },
+    "open-sidepanel": {
+      "suggested_key": { "default": "Ctrl+Shift+O" },
+      "description": "Open Notely side panel"
+    }
+  }
+}
