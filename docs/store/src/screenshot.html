@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  Chrome Web Store screenshot frame (render at 1280×800).
+  Query params: ?img=<file in docs/screenshots>&title=<headline>&sub=<subline>&theme=light|dark
+-->
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: Montserrat; src: url('../../../public/fonts/montserrat-latin.woff2') format('woff2'); font-weight: 100 900; }
+  html, body { margin: 0; width: 1280px; height: 800px; overflow: hidden; }
+  body { font-family: Montserrat, sans-serif; background: #7c5cff; color: #fff; position: relative; }
+  body.dark { background: #17142a; }
+  .top { position: absolute; top: 30px; left: 56px; right: 56px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; background: #fff; padding: 4px; box-sizing: border-box; }
+  .meta { display: flex; gap: 10px; }
+  .pill { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 650; padding: 7px 14px; border-radius: 99px; background: rgba(255, 255, 255, .16); white-space: nowrap; }
+  .pill svg { width: 15px; height: 15px; flex: 0 0 auto; }
+  .heart { color: #ffb3c4; }
+  .copy { position: absolute; top: 96px; left: 0; right: 0; text-align: center; padding: 0 80px; }
+  h1 { margin: 0; font-size: 46px; line-height: 1.1; font-weight: 800; letter-spacing: -.03em; }
+  p { margin: 12px 0 0; font-size: 20px; font-weight: 500; opacity: .9; }
+  .shot {
+    position: absolute; left: 50%; top: 236px; width: 1104px; transform: translateX(-50%);
+    border-radius: 16px 16px 0 0; overflow: hidden; background: #fff;
+    box-shadow: 0 24px 70px rgba(20, 8, 70, .45), 0 0 0 1px rgba(255, 255, 255, .25);
+  }
+  .shot img { display: block; width: 100%; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand"><img src="../../../public/icons/icon128.png" alt="" />Notely</div>
+    <div class="meta">
+      <span class="pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
+        Open source · github.com/Toolvanta/notely
+      </span>
+      <span class="pill">
+        <svg class="heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.1C.9 8.6 3 5 6.6 5c2 0 3.4 1.1 4.4 2.4C12 6.1 13.4 5 15.4 5 19 5 21.1 8.6 19.6 11.9 17.5 16.4 12 21 12 21z"/></svg>
+        Sponsored by ToolEnhancer
+      </span>
+    </div>
+  </div>
+  <div class="copy">
+    <h1 id="title"></h1>
+    <p id="sub"></p>
+  </div>
+  <div class="shot"><img id="img" alt="" /></div>
+  <script>
+    const q = new URLSearchParams(location.search)
+    document.getElementById('title').textContent = q.get('title') || ''
+    document.getElementById('sub').textContent = q.get('sub') || ''
+    document.getElementById('img').src = '../../screenshots/' + (q.get('img') || 'editor-light.png')
+    if (q.get('theme') === 'dark') document.body.classList.add('dark')
+  </script>
+</body>
+</html>

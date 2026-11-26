@@ -2,7 +2,7 @@
   "name": "notely-advanced-notepad",
   "private": true,
   "version": "1.1.0",
-  "description": "Notely - a beautiful, feature-rich notepad browser extension",
+  "description": "Private rich-text notepad for Chrome: side panel notes, Markdown shortcuts, checklists, web clipper and version history. 100% local.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -52,5 +52,14 @@
   "funding": {
     "type": "individual",
     "url": "http://toolenhancer.com/"
-  }
+  },
+  "keywords": [
+    "chrome-extension",
+    "notepad",
+    "notes",
+    "side-panel",
+    "web-clipper",
+    "markdown",
+    "tiptap"
+  ]
 }

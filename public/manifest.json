@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Notely - Advanced Notepad",
+  "name": "Notely - Rich Text Notepad, Side Panel Notes & Web Clipper",
   "short_name": "Notely",
   "version": "1.1.0",
-  "description": "A beautiful, feature-rich notepad for your browser. Write, organize, capture and find your notes instantly.",
+  "description": "Private rich-text notepad for Chrome: side panel notes, Markdown shortcuts, checklists, web clipper and version history. 100% local.",
   "homepage_url": "https://github.com/Toolvanta/notely",
   "minimum_chrome_version": "116",
   "icons": {

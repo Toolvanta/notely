@@ -42,49 +42,19 @@ In the dashboard, click **New item** and upload `release/notely-<version>.zip`. 
 
 | Field | Value |
 | --- | --- |
-| **Name** | Notely - Advanced Notepad *(from the manifest)* |
-| **Summary** | A beautiful, feature-rich notepad for your browser. Write, organize, capture and find your notes instantly. *(from the manifest; max 132 characters)* |
+| **Name** | Notely - Rich Text Notepad, Side Panel Notes & Web Clipper *(from the manifest; 58/75 characters)* |
+| **Summary** | Private rich-text notepad for Chrome: side panel notes, Markdown shortcuts, checklists, web clipper and version history. 100% local. *(from the manifest; 132/132 characters)* |
 | **Category** | Productivity → Tools *(or Workflow & Planning)* |
 | **Language** | English |
-| **Store icon** | `public/icons/icon128.png` (128×128) |
-| **Screenshots** | Upload 1–5 from `docs/store/screenshots/` (all exactly 1280×800). Suggested order: `editor-light`, `library`, `note-menu`, `version-history`, `editor-dark` |
+| **Store icon** | `docs/store/store-icon-128.png` (128×128, 96×96 artwork with transparent padding) |
+| **Screenshots** | `docs/store/screenshots/1-write.png` … `5-private.png` (all 1280×800), uploaded in order |
 | **Small promo tile** | `docs/store/promo-small-440x280.png` |
-| **Marquee promo tile** *(optional)* | `docs/store/promo-marquee-1400x560.png` |
+| **Marquee promo tile** | `docs/store/promo-marquee-1400x560.png` |
 | **Official URL** | Your verified site, if you did step 1.5 |
 | **Homepage URL** | `https://github.com/Toolvanta/notely` |
 | **Support URL** | `https://github.com/Toolvanta/notely/issues` |
 
-**Description** (paste and edit as you like):
-
-```
-Notely is a fast, private notepad that lives in your browser. Open it from the toolbar, keep it in Chrome's side panel, or use it in a full tab. Your notes stay in sync everywhere.
-
-WRITE
-• Rich-text editor: headings, bold/italic/underline, highlights, quotes, code blocks, links and emoji
-• Markdown shortcuts as you type: "# " heading, "- " list, "[ ] " checklist, "> " quote, ``` code
-• Checklists with nesting, reliable undo/redo, and clean pasting from any website
-
-ORGANIZE
-• Search all notes, filter by notebook or tag, pin and archive
-• Version history: preview and restore earlier versions of any note
-• Trash with undo: nothing is deleted by accident
-• Command palette (Ctrl/⌘+K) for every action
-
-CAPTURE
-• Right-click → Save selection, page or link to Notely
-• Alt+Shift+S saves the selected text; Alt+Shift+Q starts a quick note
-• Optional "Save to Notely" button on text selection, which you can hide per site
-
-EXPORT
-• Markdown, HTML or plain text, or copy as Markdown
-• Full JSON backup and restore
-
-PRIVATE BY DESIGN
-• Everything is stored locally on your device. No account, no servers, no tracking
-• No access to websites unless you turn on the optional selection button
-
-Open source: https://github.com/Toolvanta/notely
-```
+**Description:** copy the SEO-friendly description from **[docs/store/LISTING.md](store/LISTING.md)**. It includes the GitHub repository and the ToolEnhancer sponsorship. That file also lists every graphic asset with its required size.
 
 ### Privacy practices
 
@@ -154,5 +124,5 @@ After it's live, add the store link to the README's **Install** section.
 | Unclear single purpose / keyword stuffing | One clear purpose; plain description ✔ |
 | Missing privacy policy when handling user data | `PRIVACY.md` ✔ |
 | Remote code / `eval` | None; strict CSP ✔ |
-| Screenshots of the wrong size | 1280×800 in `docs/store/screenshots/` ✔ |
+| Screenshots of the wrong size | 1280×800 in `docs/store/screenshots/`, verified ✔ |
 | Misleading branding or name | Name and icon are original ✔ |
