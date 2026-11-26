@@ -1,24 +1,34 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react'
+import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react'
+import { StarterKit } from '@tiptap/starter-kit'
+import { Highlight } from '@tiptap/extension-highlight'
+import { TextAlign } from '@tiptap/extension-text-align'
+import { Subscript } from '@tiptap/extension-subscript'
+import { Superscript } from '@tiptap/extension-superscript'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { Placeholder } from '@tiptap/extensions'
 import {
-  AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowLeft, Bold,
+  AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowUpRight, Bold,
   Check, CheckSquare, ChevronDown, Clock, Code2,
   Eraser, FileText, Heading1, Heading2, Heading3, Highlighter,
   IndentDecrease, IndentIncrease, Italic, Link2, List, ListOrdered,
-  Minus, NotebookPen, Pin, Quote, Redo2,
-  Settings2, Smile, Sparkles, Strikethrough, Subscript, Superscript,
+  Minus, NotebookPen, Pin, Quote, Redo2, RotateCcw,
+  Settings2, Smile, Sparkles, SquareCode, Strikethrough, Subscript as SubscriptIcon, Superscript as SuperscriptIcon,
   Underline, Undo2, X,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { StatsView } from './StatsView'
-import { cn, escapeHtml, formatFullDate, wordCount } from '../lib/utils'
-import { sanitizeHtml } from '../lib/sanitize'
+import { NoteMenu } from './NoteMenu'
+import { cn, formatFullDate, safeUrl, wordCount } from '../lib/utils'
+import { sanitizeHtml, upgradeLegacyHtml } from '../lib/sanitize'
+import type { FontFamily, Note } from '../lib/types'
 
 const HIGHLIGHTS = ['#fde047', '#86efac', '#f9a8d4', '#93c5fd', '#fdba74']
-const FONTS = [
-  { id: 'inter', label: 'Sans', family: 'var(--font)' },
+const FONTS: { id: FontFamily; label: string; family: string }[] = [
+  { id: 'sans', label: 'Sans', family: 'var(--font)' },
   { id: 'serif', label: 'Serif', family: 'var(--font-serif)' },
   { id: 'mono', label: 'Mono', family: 'var(--font-mono)' },
-] as const
+]
 const EMOJIS = [
   '😀', '😂', '😍', '🥰', '😎', '🤔', '😊', '😉',
   '😁', '😅', '😭', '😡', '👍', '👎', '👏', '🙌',
@@ -26,134 +36,37 @@ const EMOJIS = [
   '✅', '❌', '⭐', '🚀', '💡', '📌', '📝', '🌈',
   '☀️', '🌙', '🍀', '🍕', '☕', '🎯', '🧠', '💬',
 ]
-type ToolMenu = 'font' | 'emoji' | null
+type ToolMenu = 'font' | 'emoji' | 'highlight'
+
+function buildExtensions() {
+  return [
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3] },
+      link: {
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        defaultProtocol: 'https',
+        protocols: ['mailto'],
+        isAllowedUri: (url, ctx) => ctx.defaultValidate(url) && !!safeUrl(/^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`),
+        HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' },
+      },
+    }),
+    Highlight.configure({ multicolor: true }),
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    Subscript,
+    Superscript,
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Placeholder.configure({ placeholder: 'Start writing… try “# ” for a heading, “- ” for a list or “[ ] ” for a task.' }),
+  ]
+}
 
 export function EditorPane() {
   const {
-    notes, view, selectedId, settings, updateNote,
-    togglePin, createNote, setSettings, setSettingsOpen,
+    notes, view, selectedId, updateNote, togglePin, createNote, setSettingsOpen, restoreNote,
   } = useApp()
   const note = notes.find((n) => n.id === selectedId)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({})
-  const [colorsOpen, setColorsOpen] = useState(false)
-  const [menu, setMenu] = useState<{ kind: ToolMenu; left: number; top: number } | null>(null)
-  const toolbarRef = useRef<HTMLDivElement>(null)
-
-  // Load content imperatively when switching notes (uncontrolled contenteditable).
-  useEffect(() => {
-    if (contentRef.current && note) contentRef.current.innerHTML = note.content || ''
-    setActiveFormats({})
-    setMenu(null)
-  }, [note?.id])
-
-  useEffect(() => {
-    document.execCommand?.('styleWithCSS', false, 'true')
-  }, [])
-
-  // Reflect which formatting commands are active at the current caret/selection.
-  const updateActiveFormats = () => {
-    const sel = window.getSelection()
-    if (!sel?.anchorNode || !contentRef.current?.contains(sel.anchorNode)) return
-    const keys = [
-      'bold', 'italic', 'underline', 'strikeThrough', 'subscript', 'superscript',
-      'insertUnorderedList', 'insertOrderedList',
-      'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull',
-    ]
-    const next: Record<string, boolean> = {}
-    keys.forEach((k) => { try { next[k] = document.queryCommandState(k) } catch { next[k] = false } })
-    let block = ''
-    try { block = String(document.queryCommandValue('formatBlock') || '').toLowerCase().replace(/[<>]/g, '') } catch { /* unsupported */ }
-    next.h1 = block === 'h1'
-    next.h2 = block === 'h2'
-    next.h3 = block === 'h3'
-    next.quote = block === 'blockquote'
-    setActiveFormats(next)
-  }
-
-  useEffect(() => {
-    document.addEventListener('selectionchange', updateActiveFormats)
-    return () => document.removeEventListener('selectionchange', updateActiveFormats)
-  }, [note?.id])
-
-  const syncContent = () => {
-    if (!note || !contentRef.current) return
-    // Checkbox state lives as a DOM property, so mirror it into attributes before saving.
-    contentRef.current.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((box) => {
-      if (box.checked) box.setAttribute('checked', '')
-      else box.removeAttribute('checked')
-    })
-    const clean = sanitizeHtml(contentRef.current.innerHTML)
-    const plain = contentRef.current.innerText.replace(/\s+/g, ' ').trim()
-    updateNote(note.id, { content: clean, plainText: plain })
-  }
-
-  const exec = (command: string, value?: string) => {
-    contentRef.current?.focus()
-    try { document.execCommand(command, false, value) } catch { /* unsupported */ }
-    syncContent()
-    updateActiveFormats()
-  }
-
-  const insertHtml = (html: string) => exec('insertHTML', html)
-
-  const addLink = () => {
-    const selection = window.getSelection()?.toString() || ''
-    const url = window.prompt('Enter a link URL', selection.startsWith('http') ? selection : 'https://')
-    if (!url) return
-    if (!selection) insertHtml(`<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`)
-    else exec('createLink', url)
-  }
-
-  const openMenu = (kind: Exclude<ToolMenu, null>, e: MouseEvent<HTMLButtonElement>) => {
-    if (menu?.kind === kind) { setMenu(null); return }
-    const rect = e.currentTarget.getBoundingClientRect()
-    const bar = toolbarRef.current?.getBoundingClientRect()
-    setMenu({
-      kind,
-      left: bar ? Math.max(4, rect.left - bar.left) : 0,
-      top: bar ? rect.bottom - bar.top + 6 : 34,
-    })
-  }
-
-  // Row 1: text formatting + headings. Row 2: blocks, lists, alignment, insert.
-  const formatTools = useMemo(() => ([
-    { key: 'undo', icon: Undo2, title: 'Undo (Ctrl+Z)', action: () => exec('undo') },
-    { key: 'redo', icon: Redo2, title: 'Redo (Ctrl+Y)', action: () => exec('redo') },
-    { divider: true },
-    { key: 'bold', icon: Bold, title: 'Bold (Ctrl+B)', action: () => exec('bold') },
-    { key: 'italic', icon: Italic, title: 'Italic (Ctrl+I)', action: () => exec('italic') },
-    { key: 'underline', icon: Underline, title: 'Underline (Ctrl+U)', action: () => exec('underline') },
-    { key: 'strikeThrough', icon: Strikethrough, title: 'Strikethrough', action: () => exec('strikeThrough') },
-    { divider: true },
-    { key: 'subscript', icon: Subscript, title: 'Subscript', action: () => exec('subscript') },
-    { key: 'superscript', icon: Superscript, title: 'Superscript', action: () => exec('superscript') },
-    { key: 'highlight', icon: Highlighter, title: 'Highlight', action: () => setColorsOpen((v) => !v) },
-    { key: 'removeFormat', icon: Eraser, title: 'Clear formatting', action: () => exec('removeFormat') },
-    { divider: true },
-    { key: 'h1', icon: Heading1, title: 'Heading 1', action: () => exec('formatBlock', 'h1') },
-    { key: 'h2', icon: Heading2, title: 'Heading 2', action: () => exec('formatBlock', 'h2') },
-    { key: 'h3', icon: Heading3, title: 'Heading 3', action: () => exec('formatBlock', 'h3') },
-    { key: 'quote', icon: Quote, title: 'Quote', action: () => exec('formatBlock', 'blockquote') },
-  ]), [note?.id])
-
-  const blockTools = useMemo(() => ([
-    { key: 'insertUnorderedList', icon: List, title: 'Bullet list', action: () => exec('insertUnorderedList') },
-    { key: 'insertOrderedList', icon: ListOrdered, title: 'Numbered list', action: () => exec('insertOrderedList') },
-    { key: 'checklist', icon: CheckSquare, title: 'Checklist', action: () => insertHtml('<ul><li><input type="checkbox"> ' + (window.getSelection()?.toString() || 'Task') + '</li></ul>') },
-    { divider: true },
-    { key: 'outdent', icon: IndentDecrease, title: 'Decrease indent', action: () => exec('outdent') },
-    { key: 'indent', icon: IndentIncrease, title: 'Increase indent', action: () => exec('indent') },
-    { divider: true },
-    { key: 'justifyLeft', icon: AlignLeft, title: 'Align left', action: () => exec('justifyLeft') },
-    { key: 'justifyCenter', icon: AlignCenter, title: 'Align center', action: () => exec('justifyCenter') },
-    { key: 'justifyRight', icon: AlignRight, title: 'Align right', action: () => exec('justifyRight') },
-    { key: 'justifyFull', icon: AlignJustify, title: 'Justify', action: () => exec('justifyFull') },
-    { divider: true },
-    { key: 'link', icon: Link2, title: 'Insert link', action: addLink },
-    { key: 'code', icon: Code2, title: 'Inline code', action: () => insertHtml('<code>' + escapeHtml(window.getSelection()?.toString() || 'code') + '</code>') },
-    { key: 'hr', icon: Minus, title: 'Divider', action: () => exec('insertHorizontalRule') },
-  ]), [note?.id])
 
   if (view.kind === 'stats') {
     return (
@@ -170,7 +83,7 @@ export function EditorPane() {
           <div className="no-note__inner">
             <div className="no-note__art"><NotebookPen size={38} strokeWidth={1.6} /></div>
             <h2>A fresh page awaits</h2>
-            <p>Pick a note from the list, or start something new. Your ideas deserve a good home.</p>
+            <p>Pick a note from the rail, or start something new. Your ideas deserve a good home.</p>
             <button className="btn btn--primary" onClick={() => createNote()}><Sparkles size={14} /> New note</button>
             <div className="shortcut-hint" style={{ marginTop: 18 }}>
               <kbd>Ctrl</kbd> + <kbd>K</kbd> <span>for commands</span> <span>·</span> <kbd>Ctrl</kbd> + <kbd>N</kbd> <span>for a new note</span>
@@ -181,8 +94,6 @@ export function EditorPane() {
     )
   }
 
-  const words = wordCount(note.plainText)
-
   return (
     <section className="editor-pane">
       <div className="editor-topbar">
@@ -192,153 +103,112 @@ export function EditorPane() {
             value={note.title}
             placeholder="Untitled note"
             aria-label="Note title"
+            readOnly={note.trashed}
             onChange={(e) => updateNote(note.id, { title: e.target.value })}
           />
         </div>
-        <button className={cn('icon-btn', note.pinned && 'icon-btn--active')} title={note.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(note.id)}>
+        {note.archived && <span className="note-badge">Archived</span>}
+        <button className={cn('icon-btn', note.pinned && 'icon-btn--active')} title={note.pinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(note.id)} disabled={note.trashed}>
           <Pin size={16} fill={note.pinned ? 'currentColor' : 'none'} />
         </button>
+        <NoteMenu note={note} />
         <button className="icon-btn" title="Settings" onClick={() => setSettingsOpen(true)}>
           <Settings2 size={16} />
         </button>
       </div>
+      {note.trashed && (
+        <div className="note-banner">
+          This note is in the trash and is read-only.
+          <button className="btn btn--ghost btn--sm" onClick={() => restoreNote(note.id)}><RotateCcw size={13} /> Restore</button>
+        </div>
+      )}
+      {/* One editor instance per note: undo history never leaks between notes. */}
+      <NoteEditor key={note.id} note={note} />
+    </section>
+  )
+}
 
+function NoteEditor({ note }: { note: Note }) {
+  const { settings, setSettings, updateNote } = useApp()
+  const updateRef = useRef(updateNote)
+  updateRef.current = updateNote
+  /** Last HTML this editor produced, to tell our own updates apart from changes made elsewhere. */
+  const lastEmitted = useRef(note.content)
+  const [menu, setMenu] = useState<{ kind: ToolMenu; left: number; top: number } | null>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+
+  const editor = useEditor({
+    extensions: buildExtensions(),
+    content: upgradeLegacyHtml(note.content),
+    editable: !note.trashed,
+    shouldRerenderOnTransaction: false,
+    editorProps: {
+      attributes: { class: 'editor-content', spellcheck: 'true', 'aria-label': 'Note content' },
+      // Clean pasting: strip scripts, styles, images and anything the schema can't represent.
+      transformPastedHTML: (html) => sanitizeHtml(html),
+      handleClick: (_view, _pos, event) => {
+        const anchor = (event.target as HTMLElement | null)?.closest('a')
+        if (!anchor || !(event.ctrlKey || event.metaKey)) return false
+        const url = safeUrl(anchor.getAttribute('href'))
+        if (url) window.open(url, '_blank', 'noopener,noreferrer')
+        return true
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      const html = ed.isEmpty ? '' : ed.getHTML()
+      lastEmitted.current = html
+      const plainText = ed.getText({ blockSeparator: '\n' }).replace(/\s+/g, ' ').trim()
+      updateRef.current(note.id, { content: html, plainText })
+    },
+  })
+
+  // Content changed somewhere else (another view, background, version restore): load it
+  // without adding the swap to the undo history.
+  useEffect(() => {
+    if (!editor || note.content === lastEmitted.current) return
+    lastEmitted.current = note.content
+    editor.chain().setMeta('addToHistory', false).setContent(upgradeLegacyHtml(note.content), { emitUpdate: false }).run()
+  }, [editor, note.content])
+
+  useEffect(() => { editor?.setEditable(!note.trashed) }, [editor, note.trashed])
+
+  const openMenu = (kind: ToolMenu, e: MouseEvent<HTMLButtonElement>) => {
+    if (menu?.kind === kind) { setMenu(null); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const bar = toolbarRef.current?.getBoundingClientRect()
+    setMenu({
+      kind,
+      left: bar ? Math.max(4, rect.left - bar.left) : 0,
+      top: bar ? rect.bottom - bar.top + 6 : 34,
+    })
+  }
+
+  const fontFamily = settings.fontFamily === 'serif' ? 'var(--font-serif)' : settings.fontFamily === 'mono' ? 'var(--font-mono)' : 'var(--font)'
+  const words = wordCount(note.plainText)
+  const source = safeUrl(note.source)
+
+  return (
+    <>
       <div className="editor-scroll">
         <div className="editor-inner">
-          <div className="editor-toolbar" ref={toolbarRef}>
-            <div className="tool-row">
-              {formatTools.map((tool, i) => 'divider' in tool ? (
-                <span className="tool-divider" key={`fd-${i}`} />
-              ) : (
-                <button
-                  key={tool.key}
-                  className={cn('tool-btn', activeFormats[tool.key] && 'tool-btn--active')}
-                  title={tool.title}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={tool.action}
-                >
-                  <tool.icon size={15} />
-                </button>
-              ))}
-              <div className="toolbar-spacer" />
-              <button
-                className={cn('font-select', menu?.kind === 'font' && 'font-select--open')}
-                title="Editor font"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={(e) => openMenu('font', e)}
-              >
-                <span>{FONTS.find((f) => f.id === settings.fontFamily)?.label ?? 'Sans'}</span>
-                <ChevronDown size={14} />
-              </button>
-            </div>
-            <div className="tool-row">
-              {blockTools.map((tool, i) => 'divider' in tool ? (
-                <span className="tool-divider" key={`bd-${i}`} />
-              ) : (
-                <button
-                  key={tool.key}
-                  className={cn('tool-btn', activeFormats[tool.key] && 'tool-btn--active')}
-                  title={tool.title}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={tool.action}
-                >
-                  <tool.icon size={15} />
-                </button>
-              ))}
-              <button
-                className={cn('tool-btn', menu?.kind === 'emoji' && 'tool-btn--active')}
-                title="Insert emoji"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={(e) => openMenu('emoji', e)}
-              >
-                <Smile size={15} />
-              </button>
-            </div>
-
-            {menu && (
-              <>
-                <div className="popover-backdrop" onClick={() => setMenu(null)} />
-                {menu.kind === 'font' && (
-                  <div
-                    className="popover font-menu__popover"
-                    style={{ position: 'absolute', left: Math.max(4, Math.min(menu.left - 70, (toolbarRef.current?.clientWidth ?? 400) - 180)), top: menu.top }}
-                  >
-                    {FONTS.map((font) => (
-                      <button
-                        key={font.id}
-                        className={cn(settings.fontFamily === font.id && 'font-menu__active')}
-                        style={{ fontFamily: font.family }}
-                        onClick={() => { setSettings({ fontFamily: font.id }); setMenu(null) }}
-                      >
-                        {settings.fontFamily === font.id ? <Check size={15} /> : <span className="font-menu__check" />}
-                        {font.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {menu.kind === 'emoji' && (
-                  <div
-                    className="popover emoji-popover"
-                    style={{ position: 'absolute', left: Math.max(4, Math.min(menu.left - 90, (toolbarRef.current?.clientWidth ?? 400) - 236)), top: menu.top }}
-                  >
-                    <div className="emoji-popover__title">Emoji</div>
-                    <div className="emoji-grid">
-                      {EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          title={emoji}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => { insertHtml(`${emoji} `); setMenu(null) }}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {colorsOpen && (
-            <div className="popover color-popover color-popover--highlight">
-              <div className="color-popover__label">Highlight</div>
-              <div className="color-popover__swatches">
-                {HIGHLIGHTS.map((color) => (
-                  <button
-                    key={color}
-                    title={`Highlight ${color}`}
-                    style={{ width: 24, height: 24, borderRadius: 7, background: color }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => { exec('hiliteColor', color); setColorsOpen(false) }}
-                  />
-                ))}
-              </div>
-              <button className="color-popover__clear" onMouseDown={(e) => e.preventDefault()} onClick={() => { exec('hiliteColor', 'transparent'); setColorsOpen(false) }}>
-                <X size={13} /> Remove highlight
-              </button>
-            </div>
+          {editor && !note.trashed && (
+            <Toolbar editor={editor} toolbarRef={toolbarRef} menu={menu} openMenu={openMenu} closeMenu={() => setMenu(null)}
+              fontFamily={settings.fontFamily} onFont={(id) => setSettings({ fontFamily: id })} />
           )}
-
           <div
-            ref={contentRef}
-            className="editor-content"
-            contentEditable
-            suppressContentEditableWarning
-            spellCheck
-            data-placeholder="Start writing… let your thoughts flow."
-            onInput={syncContent}
-            onBlur={syncContent}
+            className="editor-host"
             style={{
               ['--editor-font-size' as string]: `${settings.fontSize}px`,
-              ['--editor-font-family' as string]: settings.fontFamily === 'serif' ? 'var(--font-serif)' : settings.fontFamily === 'mono' ? 'var(--font-mono)' : 'var(--font)',
+              ['--editor-font-family' as string]: fontFamily,
             }}
-          />
+          >
+            <EditorContent editor={editor} />
+          </div>
 
-          {note.source && (
-            <div style={{ marginTop: 28, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <a href={note.source} target="_blank" rel="noreferrer" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                Open source <ArrowLeft size={12} style={{ transform: 'rotate(135deg)' }} />
+          {source && (
+            <div className="editor-source">
+              <a href={source} target="_blank" rel="noopener noreferrer">
+                Open source <ArrowUpRight size={12} />
               </a>
             </div>
           )}
@@ -348,8 +218,241 @@ export function EditorPane() {
       <div className="editor-status">
         <span><FileText size={11} /> {words} words</span>
         <span><Clock size={11} /> {note.plainText.length} chars</span>
+        <span className="status-hint">Markdown shortcuts work · Ctrl+click opens links</span>
         <span className="status-right">Created {formatFullDate(note.createdAt)}</span>
       </div>
-    </section>
+    </>
+  )
+}
+
+interface ToolbarProps {
+  editor: Editor
+  toolbarRef: RefObject<HTMLDivElement>
+  menu: { kind: ToolMenu; left: number; top: number } | null
+  openMenu: (kind: ToolMenu, e: MouseEvent<HTMLButtonElement>) => void
+  closeMenu: () => void
+  fontFamily: FontFamily
+  onFont: (id: FontFamily) => void
+}
+
+type Tool = { divider: true } | {
+  key: string
+  icon: typeof Bold
+  title: string
+  run: () => void
+  active?: boolean
+  disabled?: boolean
+}
+
+function Toolbar({ editor, toolbarRef, menu, openMenu, closeMenu, fontFamily, onFont }: ToolbarProps) {
+  const { showToast } = useApp()
+  // Re-render the toolbar only when the bits it displays change.
+  const s = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      const listType = e.isActive('taskItem') ? 'taskItem' : 'listItem'
+      return {
+        bold: e.isActive('bold'),
+        italic: e.isActive('italic'),
+        underline: e.isActive('underline'),
+        strike: e.isActive('strike'),
+        subscript: e.isActive('subscript'),
+        superscript: e.isActive('superscript'),
+        highlight: e.isActive('highlight'),
+        code: e.isActive('code'),
+        codeBlock: e.isActive('codeBlock'),
+        h1: e.isActive('heading', { level: 1 }),
+        h2: e.isActive('heading', { level: 2 }),
+        h3: e.isActive('heading', { level: 3 }),
+        quote: e.isActive('blockquote'),
+        bullet: e.isActive('bulletList'),
+        ordered: e.isActive('orderedList'),
+        task: e.isActive('taskList'),
+        left: e.isActive({ textAlign: 'left' }),
+        center: e.isActive({ textAlign: 'center' }),
+        right: e.isActive({ textAlign: 'right' }),
+        justify: e.isActive({ textAlign: 'justify' }),
+        link: e.isActive('link'),
+        canUndo: e.can().undo(),
+        canRedo: e.can().redo(),
+        canSink: e.can().sinkListItem(listType),
+        canLift: e.can().liftListItem(listType),
+        listType,
+      }
+    },
+  })
+
+  const chain = () => editor.chain().focus()
+
+  const addLink = () => {
+    const previous = editor.getAttributes('link').href as string | undefined
+    const input = window.prompt('Link URL (leave empty to remove the link)', previous ?? 'https://')
+    if (input === null) return
+    const trimmed = input.trim()
+    if (!trimmed || trimmed === 'https://') { chain().extendMarkRange('link').unsetLink().run(); return }
+    const url = safeUrl(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`)
+    if (!url) { showToast('Only http, https and mailto links are allowed', 'error'); return }
+    if (editor.state.selection.empty && !editor.isActive('link')) {
+      chain().insertContent({ type: 'text', text: url, marks: [{ type: 'link', attrs: { href: url } }] }).run()
+    } else {
+      chain().extendMarkRange('link').setLink({ href: url }).run()
+    }
+  }
+
+  const formatTools: Tool[] = [
+    { key: 'undo', icon: Undo2, title: 'Undo (Ctrl+Z)', run: () => chain().undo().run(), disabled: !s.canUndo },
+    { key: 'redo', icon: Redo2, title: 'Redo (Ctrl+Shift+Z)', run: () => chain().redo().run(), disabled: !s.canRedo },
+    { divider: true },
+    { key: 'bold', icon: Bold, title: 'Bold (Ctrl+B)', run: () => chain().toggleBold().run(), active: s.bold },
+    { key: 'italic', icon: Italic, title: 'Italic (Ctrl+I)', run: () => chain().toggleItalic().run(), active: s.italic },
+    { key: 'underline', icon: Underline, title: 'Underline (Ctrl+U)', run: () => chain().toggleUnderline().run(), active: s.underline },
+    { key: 'strike', icon: Strikethrough, title: 'Strikethrough (Ctrl+Shift+S)', run: () => chain().toggleStrike().run(), active: s.strike },
+    { divider: true },
+    { key: 'subscript', icon: SubscriptIcon, title: 'Subscript', run: () => chain().toggleSubscript().run(), active: s.subscript },
+    { key: 'superscript', icon: SuperscriptIcon, title: 'Superscript', run: () => chain().toggleSuperscript().run(), active: s.superscript },
+    { key: 'removeFormat', icon: Eraser, title: 'Clear formatting', run: () => chain().unsetAllMarks().clearNodes().run() },
+    { divider: true },
+    { key: 'h1', icon: Heading1, title: 'Heading 1 (# )', run: () => chain().toggleHeading({ level: 1 }).run(), active: s.h1 },
+    { key: 'h2', icon: Heading2, title: 'Heading 2 (## )', run: () => chain().toggleHeading({ level: 2 }).run(), active: s.h2 },
+    { key: 'h3', icon: Heading3, title: 'Heading 3 (### )', run: () => chain().toggleHeading({ level: 3 }).run(), active: s.h3 },
+    { key: 'quote', icon: Quote, title: 'Quote (> )', run: () => chain().toggleBlockquote().run(), active: s.quote },
+  ]
+
+  const blockTools: Tool[] = [
+    { key: 'bullet', icon: List, title: 'Bullet list (- )', run: () => chain().toggleBulletList().run(), active: s.bullet },
+    { key: 'ordered', icon: ListOrdered, title: 'Numbered list (1. )', run: () => chain().toggleOrderedList().run(), active: s.ordered },
+    { key: 'task', icon: CheckSquare, title: 'Checklist ([ ] )', run: () => chain().toggleTaskList().run(), active: s.task },
+    { divider: true },
+    { key: 'outdent', icon: IndentDecrease, title: 'Decrease indent (Shift+Tab)', run: () => chain().liftListItem(s.listType).run(), disabled: !s.canLift },
+    { key: 'indent', icon: IndentIncrease, title: 'Increase indent (Tab)', run: () => chain().sinkListItem(s.listType).run(), disabled: !s.canSink },
+    { divider: true },
+    { key: 'left', icon: AlignLeft, title: 'Align left', run: () => chain().setTextAlign('left').run(), active: s.left },
+    { key: 'center', icon: AlignCenter, title: 'Align center', run: () => chain().setTextAlign('center').run(), active: s.center },
+    { key: 'right', icon: AlignRight, title: 'Align right', run: () => chain().setTextAlign('right').run(), active: s.right },
+    { key: 'justify', icon: AlignJustify, title: 'Justify', run: () => chain().setTextAlign('justify').run(), active: s.justify },
+    { divider: true },
+    { key: 'link', icon: Link2, title: 'Insert or edit link', run: addLink, active: s.link },
+    { key: 'code', icon: Code2, title: 'Inline code (`code`)', run: () => chain().toggleCode().run(), active: s.code },
+    { key: 'codeBlock', icon: SquareCode, title: 'Code block (```)', run: () => chain().toggleCodeBlock().run(), active: s.codeBlock },
+    { key: 'hr', icon: Minus, title: 'Divider (---)', run: () => chain().setHorizontalRule().run() },
+  ]
+
+  const renderTool = (tool: Tool, i: number, prefix: string) => 'divider' in tool ? (
+    <span className="tool-divider" key={`${prefix}-${i}`} />
+  ) : (
+    <button
+      key={tool.key}
+      className={cn('tool-btn', tool.active && 'tool-btn--active')}
+      title={tool.title}
+      aria-label={tool.title}
+      aria-pressed={tool.active ?? undefined}
+      disabled={tool.disabled}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={tool.run}
+    >
+      <tool.icon size={15} />
+    </button>
+  )
+
+  const popoverLeft = (offset: number, width: number) =>
+    Math.max(4, Math.min((menu?.left ?? 0) - offset, (toolbarRef.current?.clientWidth ?? 400) - width))
+
+  return (
+    <div className="editor-toolbar" ref={toolbarRef}>
+      <div className="tool-row">
+        {/* undo … superscript, then the highlight colour picker, then the rest */}
+        {formatTools.slice(0, 10).map((t, i) => renderTool(t, i, 'f'))}
+        <button
+          className={cn('tool-btn', (s.highlight || menu?.kind === 'highlight') && 'tool-btn--active')}
+          title="Highlight"
+          aria-label="Highlight"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => openMenu('highlight', e)}
+        >
+          <Highlighter size={15} />
+        </button>
+        {formatTools.slice(10).map((t, i) => renderTool(t, i, 'f2'))}
+        <div className="toolbar-spacer" />
+        <button
+          className={cn('font-select', menu?.kind === 'font' && 'font-select--open')}
+          title="Editor font"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => openMenu('font', e)}
+        >
+          <span>{FONTS.find((f) => f.id === fontFamily)?.label ?? 'Sans'}</span>
+          <ChevronDown size={14} />
+        </button>
+      </div>
+      <div className="tool-row">
+        {blockTools.map((t, i) => renderTool(t, i, 'b'))}
+        <button
+          className={cn('tool-btn', menu?.kind === 'emoji' && 'tool-btn--active')}
+          title="Insert emoji"
+          aria-label="Insert emoji"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => openMenu('emoji', e)}
+        >
+          <Smile size={15} />
+        </button>
+      </div>
+
+      {menu && (
+        <>
+          <div className="popover-backdrop" onClick={closeMenu} />
+          {menu.kind === 'font' && (
+            <div className="popover font-menu__popover" style={{ left: popoverLeft(70, 180), top: menu.top }}>
+              {FONTS.map((font) => (
+                <button
+                  key={font.id}
+                  className={cn(fontFamily === font.id && 'font-menu__active')}
+                  style={{ fontFamily: font.family }}
+                  onClick={() => { onFont(font.id); closeMenu() }}
+                >
+                  {fontFamily === font.id ? <Check size={15} /> : <span className="font-menu__check" />}
+                  {font.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {menu.kind === 'emoji' && (
+            <div className="popover emoji-popover" style={{ left: popoverLeft(90, 236), top: menu.top }}>
+              <div className="emoji-popover__title">Emoji</div>
+              <div className="emoji-grid">
+                {EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    title={emoji}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { chain().insertContent(`${emoji} `).run(); closeMenu() }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {menu.kind === 'highlight' && (
+            <div className="popover color-popover" style={{ left: popoverLeft(60, 190), top: menu.top }}>
+              <div className="color-popover__label">Highlight</div>
+              <div className="color-popover__swatches">
+                {HIGHLIGHTS.map((color) => (
+                  <button
+                    key={color}
+                    className="color-swatch"
+                    title={`Highlight ${color}`}
+                    style={{ background: color }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { chain().setHighlight({ color }).run(); closeMenu() }}
+                  />
+                ))}
+              </div>
+              <button className="color-popover__clear" onMouseDown={(e) => e.preventDefault()} onClick={() => { chain().unsetHighlight().run(); closeMenu() }}>
+                <X size={13} /> Remove highlight
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }

@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Notely — Advanced Notepad",
+  "name": "Notely - Advanced Notepad",
   "short_name": "Notely",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A beautiful, feature-rich notepad for your browser. Write, organize, capture and find your notes instantly.",
+  "homepage_url": "https://github.com/Toolvanta/notely",
+  "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -25,41 +27,50 @@
     "default_path": "sidepanel.html"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle",
-      "all_frames": false
-    }
-  ],
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "activeTab",
     "scripting",
     "contextMenus",
-    "sidePanel",
-    "notifications",
-    "commands"
+    "sidePanel"
   ],
-  "host_permissions": ["<all_urls>"],
+  "optional_permissions": [
+    "notifications"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src 'self' data:; media-src 'none'; connect-src 'self'"
+  },
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Alt+Shift+N" },
+      "suggested_key": {
+        "default": "Alt+Shift+N"
+      },
       "description": "Open Notely popup"
     },
     "quick-note": {
-      "suggested_key": { "default": "Ctrl+Shift+Y" },
+      "suggested_key": {
+        "default": "Alt+Shift+Q"
+      },
       "description": "Create a quick note"
     },
     "save-selection": {
-      "suggested_key": { "default": "Ctrl+Shift+S" },
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
       "description": "Save selected text to Notely"
     },
     "open-sidepanel": {
-      "suggested_key": { "default": "Ctrl+Shift+O" },
+      "suggested_key": {
+        "default": "Alt+Shift+O"
+      },
       "description": "Open Notely side panel"
     }
   }

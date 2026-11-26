@@ -35,13 +35,13 @@ export function seedNotes(folders: Folder[]): Note[] {
     note({
       title: 'Welcome to Notely 👋',
       content: `<h2>Your thoughts, beautifully organized.</h2>
-<p>Notely is more than a notepad — it's a calm space to think, write, and capture everything that matters. Here's a quick tour:</p>
+<p>Notely is more than a notepad - it's a calm space to think, write, and capture everything that matters. Here's a quick tour:</p>
 <blockquote><p><strong>Tip:</strong> Press <code>Ctrl/⌘ + K</code> anywhere to open the command palette and jump to any action.</p></blockquote>
 <h3>Getting started</h3>
-<ul><li>Create notebooks in the sidebar</li><li>Pin important notes to the top</li><li>Select text on any webpage and save it instantly</li></ul>
+<ul><li><p>Browse everything under <strong>All notes</strong> in the rail - search, filter by notebook or tag</p></li><li><p>Use the <strong>⋯</strong> menu to file a note in a notebook, view its history or export it</p></li><li><p>Right-click any webpage selection and choose <em>Save selection to Notely</em></p></li></ul>
 <h3>Things to try</h3>
-<ul><li><strong>Bold</strong>, <em>italic</em>, and <u>underlined</u> text</li><li>Highlighted <mark>ideas</mark></li><li>Inline <code>code snippets</code></li></ul>
-<pre>const idea = "make something wonderful";</pre>
+<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Type <code>## </code> at the start of a line for a heading</p></li><li data-type="taskItem" data-checked="false"><p>Type <code>[ ] </code> for a checklist like this one</p></li><li data-type="taskItem" data-checked="false"><p><strong>Bold</strong>, <em>italic</em>, <u>underline</u> and <mark>highlights</mark></p></li></ul>
+<pre><code>const idea = "make something wonderful";</code></pre>
 <p>Happy writing! ✨</p>`,
       tags: ['welcome', 'guide'],
       color: 'violet',
@@ -52,8 +52,8 @@ export function seedNotes(folders: Folder[]): Note[] {
     note({
       title: 'This week',
       content: `<h2>Focus &amp; tasks</h2>
-<p>Keep the momentum going — small steps every day.</p>
-<ul><li>Review the design mockups</li><li>Draft the project brief</li><li>Reply to outstanding emails</li><li>Book that dentist appointment</li></ul>
+<p>Keep the momentum going - small steps every day.</p>
+<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Review the design mockups</p></li><li data-type="taskItem" data-checked="false"><p>Draft the project brief</p></li><li data-type="taskItem" data-checked="false"><p>Reply to outstanding emails</p></li><li data-type="taskItem" data-checked="false"><p>Book that dentist appointment</p></li></ul>
 <p><strong>Win of the week:</strong> shipped the new feature ahead of schedule 🎉</p>`,
       tags: ['todo', 'weekly'],
       color: 'emerald',
@@ -63,7 +63,7 @@ export function seedNotes(folders: Folder[]): Note[] {
     note({
       title: 'Product ideas',
       content: `<h2>Things worth building</h2>
-<ol><li><strong>Voice notes</strong> — dictate ideas hands-free</li><li><strong>Daily digest</strong> — a morning summary of your notes</li><li><strong>Smart tags</strong> — suggested from note content</li></ol>
+<ol><li><strong>Voice notes</strong> - dictate ideas hands-free</li><li><strong>Daily digest</strong> - a morning summary of your notes</li><li><strong>Smart tags</strong> - suggested from note content</li></ol>
 <blockquote><p>"Simplicity is the ultimate sophistication."</p></blockquote>
 <p>Explore these when there's a quiet afternoon.</p>`,
       tags: ['ideas', 'product'],
@@ -72,13 +72,13 @@ export function seedNotes(folders: Folder[]): Note[] {
       updatedAt: now - DAY,
     }),
     note({
-      title: 'Meeting notes — Q3 kickoff',
+      title: 'Meeting notes - Q3 kickoff',
       content: `<h2>Q3 kickoff</h2>
 <p><strong>Attendees:</strong> Alex, Priya, Sam</p>
 <h3>Decisions</h3>
 <ul><li>Ship the beta by end of month</li><li>Weekly check-ins on Thursdays</li></ul>
 <h3>Action items</h3>
-<ul><li>Priya — finalize roadmap</li><li>Alex — prepare demo environment</li><li>Sam — update documentation</li></ul>`,
+<ul><li>Priya - finalize roadmap</li><li>Alex - prepare demo environment</li><li>Sam - update documentation</li></ul>`,
       tags: ['meeting', 'work'],
       color: 'blue',
       folderId: work.id,
@@ -87,7 +87,7 @@ export function seedNotes(folders: Folder[]): Note[] {
     note({
       title: 'Reading list',
       content: `<h2>Books &amp; articles</h2>
-<ul><li>Deep Work — Cal Newport</li><li>The Design of Everyday Things — Don Norman</li><li>Thinking in Systems — Donella Meadows</li></ul>
+<ul><li>Deep Work - Cal Newport</li><li>The Design of Everyday Things - Don Norman</li><li>Thinking in Systems - Donella Meadows</li></ul>
 <p>Save interesting quotes here as you read.</p>`,
       tags: ['reading'],
       folderId: personal.id,

@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import {
-  AlertTriangle, Database, Download, Info, Keyboard, Moon, Palette,
+  AlertTriangle, Database, Download, ExternalLink, Github, Globe, Heart, Info, Keyboard, Linkedin, Moon, Palette,
   RotateCcw, Sun, Trash2, Type, Upload, X,
 } from 'lucide-react'
+import { LINKS } from '../lib/links'
 import { useApp } from '../store/AppContext'
 import { exportBackup, parseBackup, type ImportResult } from '../lib/export'
 import { ACCENTS, cn, NOTE_COLORS, shortcut } from '../lib/utils'
 import type { Accent } from '../lib/types'
+import { CaptureSettings } from './CaptureSettings'
 
 type Tab = 'appearance' | 'editor' | 'data' | 'about'
 
@@ -20,7 +22,7 @@ const TABS: { id: Tab; label: string; icon: typeof Palette }[] = [
 export function SettingsModal() {
   const {
     settings, setSettings, setSettingsOpen, notes, folders, importData,
-    resetWorkspace, showToast,
+    resetWorkspace, clearWorkspace, showToast,
   } = useApp()
   const [tab, setTab] = useState<Tab>('appearance')
   const [pending, setPending] = useState<ImportResult | null>(null)
@@ -139,7 +141,7 @@ export function SettingsModal() {
                   <div className="setting-row__desc">Pick a typeface for your notes.</div>
                 </div>
                 <div className="segmented">
-                  <button className={cn('segment', settings.fontFamily === 'inter' && 'segment--active')} onClick={() => setSettings({ fontFamily: 'inter' })}>Sans</button>
+                  <button className={cn('segment', settings.fontFamily === 'sans' && 'segment--active')} onClick={() => setSettings({ fontFamily: 'sans' })}>Sans</button>
                   <button className={cn('segment', settings.fontFamily === 'serif' && 'segment--active')} onClick={() => setSettings({ fontFamily: 'serif' })}>Serif</button>
                   <button className={cn('segment', settings.fontFamily === 'mono' && 'segment--active')} onClick={() => setSettings({ fontFamily: 'mono' })}>Mono</button>
                 </div>
@@ -155,8 +157,9 @@ export function SettingsModal() {
                   <option value="title">Title A–Z</option>
                 </select>
               </div>
+              <CaptureSettings />
               <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--text-2)', fontSize: 12, lineHeight: 1.6 }}>
-                <strong style={{ color: 'var(--accent)' }}>Tip:</strong> Use the toolbar to format text, or select text on any webpage and choose <em>Save selection to Notely</em> from the context menu.
+                <strong style={{ color: 'var(--accent)' }}>Tip:</strong> Markdown shortcuts work while you type - <code>#</code> heading, <code>-</code> list, <code>[ ]</code> task, <code>&gt;</code> quote, <code>```</code> code block, <code>**bold**</code>.
               </div>
             </>
           )}
@@ -206,9 +209,8 @@ export function SettingsModal() {
                 </div>
                 <button className="btn btn--danger" onClick={() => {
                   if (window.confirm('Delete ALL notes permanently? This cannot be undone.')) {
-                    importData({ notes: [], folders: [] }, 'replace')
+                    clearWorkspace()
                     setSettingsOpen(false)
-                    showToast('All notes cleared', 'info')
                   }
                 }}><Trash2 size={14} /> Clear</button>
               </div>
@@ -225,14 +227,30 @@ export function SettingsModal() {
               <div style={{ textAlign: 'center', padding: '8px 0 18px' }}>
                 <div className="brand-mark" style={{ width: 46, height: 46, margin: '0 auto 12px' }}><Palette size={22} /></div>
                 <div style={{ fontSize: 18, fontWeight: 750 }}>Notely</div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Version 1.0.0 · Advanced Notepad</div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Version 1.1.0 · Advanced Notepad</div>
+              </div>
+              <div className="setting-group-title">Links</div>
+              <div className="about-links">
+                {([
+                  { href: LINKS.repo, icon: Github, label: 'Source code', sub: 'github.com/Toolvanta/notely' },
+                  { href: LINKS.portfolio, icon: Globe, label: 'Portfolio', sub: 'shoaibarif.vercel.app' },
+                  { href: LINKS.linkedin, icon: Linkedin, label: 'LinkedIn', sub: 'in/shoaibmarif' },
+                  { href: LINKS.sponsor, icon: Heart, label: 'Sponsor', sub: 'toolenhancer.com' },
+                ] as const).map((link) => (
+                  <a key={link.href} className="about-link" href={link.href} target="_blank" rel="noopener noreferrer">
+                    <link.icon size={16} />
+                    <span><strong>{link.label}</strong><small>{link.sub}</small></span>
+                    <ExternalLink size={12} className="about-link__ext" />
+                  </a>
+                ))}
               </div>
               <div className="setting-group-title">Keyboard shortcuts</div>
               {[
                 ['New note', shortcut('N')], ['Command palette', shortcut('K')],
-                ['Save selection', 'Ctrl+Shift+S'], ['Open side panel', 'Ctrl+Shift+O'],
-                ['Quick note', 'Ctrl+Shift+Y'], ['Focus search', '/'],
-                ['Bold / Italic', 'Ctrl+B / Ctrl+I'],
+                ['Open popup', 'Alt+Shift+N'], ['Save selection', 'Alt+Shift+S'],
+                ['Open side panel', 'Alt+Shift+O'], ['Quick note', 'Alt+Shift+Q'],
+                ['Bold / Italic / Underline', 'Ctrl+B / I / U'], ['Undo / Redo', 'Ctrl+Z / Ctrl+Shift+Z'],
+                ['Indent list item', 'Tab / Shift+Tab'], ['Open link in editor', 'Ctrl+click'],
               ].map(([label, keys]) => (
                 <div className="setting-row" key={label} style={{ padding: '8px 0' }}>
                   <div className="setting-row__text"><div className="setting-row__label" style={{ fontSize: 12.5 }}>{label}</div></div>
@@ -242,7 +260,7 @@ export function SettingsModal() {
               <div className="setting-group-title">Notes</div>
               <div style={{ display: 'flex', gap: 10, padding: 12, borderRadius: 12, background: 'var(--surface-subtle)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.6 }}>
                 <AlertTriangle size={16} style={{ flex: '0 0 auto', color: 'var(--warning)' }} />
-                <span>Everything is stored locally in your browser. Nothing leaves your device — keep a backup if you clear browser data.</span>
+                <span>Everything is stored locally in your browser. Nothing leaves your device - keep a backup if you clear browser data.</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 16, fontSize: 11, color: 'var(--text-3)' }}>
                 <Keyboard size={13} /> Made for people who think in words.

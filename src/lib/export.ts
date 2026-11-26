@@ -1,7 +1,7 @@
-import type { Folder, Note, Settings } from './types'
+import { isAccent, normalizeSettings, type Folder, type Note, type Settings } from './types'
 import { htmlToMarkdown } from './markdown'
 import { sanitizeHtml } from './sanitize'
-import { formatFullDate } from './utils'
+import { formatFullDate, safeUrl, stripHtml, uid } from './utils'
 
 export type ExportFormat = 'md' | 'html' | 'txt'
 
@@ -31,6 +31,8 @@ export function noteAsMarkdown(note: Note): string {
 }
 
 export function noteAsHtml(note: Note): string {
+  // The exported file is opened outside the extension (no CSP), so everything is re-sanitized.
+  const source = safeUrl(note.source)
   const tags = note.tags.length
     ? `<div class="tags">${note.tags.map((t) => `<span>#${escape(t)}</span>`).join('')}</div>`
     : ''
@@ -52,8 +54,8 @@ export function noteAsHtml(note: Note): string {
 <h1>${escape(note.title || 'Untitled note')}</h1>
 <div class="meta">Created ${formatFullDate(note.createdAt)} · Updated ${formatFullDate(note.updatedAt)}</div>
 ${tags}
-<article>${note.content || '<p><em>Empty note</em></p>'}</article>
-${note.source ? `<p><a href="${escape(note.source)}">Open source ↗</a></p>` : ''}
+<article>${sanitizeHtml(note.content) || '<p><em>Empty note</em></p>'}</article>
+${source ? `<p><a href="${escape(source)}" rel="noopener noreferrer">Open source ↗</a></p>` : ''}
 </body></html>`
 }
 
@@ -87,28 +89,61 @@ export interface ImportResult {
   settings?: Settings
 }
 
-export async function parseBackup(file: File): Promise<ImportResult> {
-  const text = await file.text()
-  const data = JSON.parse(text) as Record<string, unknown>
-  const notes = Array.isArray(data.notes) ? (data.notes as Note[]) : []
-  const folders = Array.isArray(data.folders) ? (data.folders as Folder[]) : []
-  const settings = data.settings && typeof data.settings === 'object' ? (data.settings as Settings) : undefined
+const MAX_BACKUP_BYTES = 50 * 1024 * 1024
 
-  const cleanNotes = notes
-    .filter((n) => n && typeof n.id === 'string')
-    .map((n) => ({
-      ...n,
-      title: String(n.title || 'Untitled note'),
-      content: sanitizeHtml(String(n.content || '')),
-      plainText: String(n.plainText || ''),
-      tags: Array.isArray(n.tags) ? n.tags.filter((t) => typeof t === 'string') : [],
+export async function parseBackup(file: File): Promise<ImportResult> {
+  if (file.size > MAX_BACKUP_BYTES) throw new Error('This file is too large to be a Notely backup.')
+  let data: Record<string, unknown>
+  try {
+    data = JSON.parse(await file.text()) as Record<string, unknown>
+  } catch {
+    throw new Error('This file is not valid JSON.')
+  }
+  if (!data || typeof data !== 'object') throw new Error('This file is not a Notely backup.')
+  const rawNotes = Array.isArray(data.notes) ? (data.notes as Record<string, unknown>[]) : []
+  const rawFolders = Array.isArray(data.folders) ? (data.folders as Record<string, unknown>[]) : []
+  const settings = data.settings && typeof data.settings === 'object' ? normalizeSettings(data.settings) : undefined
+
+  const folderIds = new Set<string>()
+  const folders: Folder[] = []
+  for (const f of rawFolders) {
+    if (!f || typeof f.id !== 'string' || typeof f.name !== 'string' || folderIds.has(f.id)) continue
+    folderIds.add(f.id)
+    folders.push({
+      id: f.id,
+      name: f.name.slice(0, 80) || 'Notebook',
+      color: isAccent(f.color) ? f.color : 'violet',
+      createdAt: Number(f.createdAt) || Date.now(),
+    })
+  }
+
+  const noteIds = new Set<string>()
+  const notes: Note[] = []
+  for (const n of rawNotes) {
+    if (!n || typeof n !== 'object') continue
+    // Duplicate ids inside one file would make two notes share a storage key.
+    const id = typeof n.id === 'string' && n.id && !noteIds.has(n.id) ? n.id : uid()
+    noteIds.add(id)
+    const content = sanitizeHtml(String(n.content ?? ''))
+    const folderId = typeof n.folderId === 'string' && folderIds.has(n.folderId) ? n.folderId : null
+    notes.push({
+      id,
+      title: String(n.title ?? 'Untitled note').slice(0, 300),
+      content,
+      plainText: typeof n.plainText === 'string' ? n.plainText : stripHtml(content),
+      folderId,
+      tags: Array.isArray(n.tags) ? n.tags.filter((t): t is string => typeof t === 'string').map((t) => t.slice(0, 40)) : [],
+      // Colours end up in inline CSS: only accent ids or #hex, never url(...) or other CSS.
+      color: isAccent(n.color) || (typeof n.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(n.color)) ? (n.color as string) : null,
       pinned: !!n.pinned,
       archived: !!n.archived,
       trashed: !!n.trashed,
       createdAt: Number(n.createdAt) || Date.now(),
       updatedAt: Number(n.updatedAt) || Date.now(),
-    }))
+      source: safeUrl(typeof n.source === 'string' ? n.source : null),
+    })
+  }
 
-  if (!cleanNotes.length && !folders.length) throw new Error('No notes or folders found in this file.')
-  return { notes: cleanNotes, folders, settings }
+  if (!notes.length && !folders.length) throw new Error('No notes or folders found in this file.')
+  return { notes, folders, settings }
 }

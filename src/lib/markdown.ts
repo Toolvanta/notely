@@ -32,16 +32,24 @@ function convert(node: Node): string {
     }
     case 'ul': case 'ol': {
       const ordered = tag === 'ol'
+      const start = Number(el.getAttribute('start')) || 1
       const lines = Array.from(el.children).map((li, i) => {
-        const prefix = ordered ? `${i + 1}. ` : '- '
-        return `${prefix}${children(li).trim()}`
+        // Tiptap task items (`li[data-checked]` + label>input) and legacy `li > input` checklists.
+        const box = li.querySelector(':scope > label > input[type="checkbox"], :scope > input[type="checkbox"]')
+        const isTask = li.hasAttribute('data-checked') || !!box
+        const checked = li.getAttribute('data-checked') === 'true' || !!box?.hasAttribute('checked')
+        const prefix = isTask ? `- [${checked ? 'x' : ' '}] ` : ordered ? `${start + i}. ` : '- '
+        const body = Array.from(li.childNodes)
+          .filter((n) => n.nodeName !== 'LABEL' && n.nodeName !== 'INPUT')
+          .map(convert).join('')
+          .replace(/\n{2,}/g, '\n').trim()
+        const [first = '', ...rest] = body.split('\n')
+        // Indent continuation lines / nested lists under the item.
+        return prefix + first + rest.map((line) => '\n' + ' '.repeat(ordered && !isTask ? prefix.length : 2) + line).join('')
       })
       return `${lines.join('\n')}\n\n`
     }
-    case 'input': {
-      const checked = el.hasAttribute('checked')
-      return `- [${checked ? 'x' : ' '}] `
-    }
+    case 'input': return ''
     case 'hr': return '\n---\n\n'
     default: return inner
   }

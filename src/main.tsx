@@ -1,9 +1,10 @@
 import { createRoot } from 'react-dom/client'
-import App from './App'
+import App, { type Mode } from './App'
 import './styles/global.css'
 
-type Mode = 'popup' | 'full' | 'sidepanel'
-const mode = (document.body.dataset.mode as Mode) || 'full'
+const MODES: Mode[] = ['popup', 'full', 'sidepanel']
+const requested = document.body.dataset.mode as Mode
+const mode: Mode = MODES.includes(requested) ? requested : 'full'
 
 const root = document.getElementById('root')
 if (root) createRoot(root).render(<App mode={mode} />)

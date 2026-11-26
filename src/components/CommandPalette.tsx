@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
-  ArrowDown, ArrowUp, Command, CornerDownLeft, Download, FileText, Maximize2,
+  Archive, ArrowDown, ArrowUp, BarChart3, Command, CornerDownLeft, Download, Files, FileText, History, Maximize2,
   Moon, Pin, Plus, Search, Settings2, Sparkles, Sun, Trash2, Upload,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
@@ -17,8 +17,8 @@ interface Action {
 
 export function CommandPalette() {
   const {
-    notes, settings, setSettings, setPaletteOpen, setSettingsOpen, setView,
-    selectNote, createNote, togglePin, trashNote, selectedId, folders, importData, showToast,
+    notes, settings, setSettings, setPaletteOpen, setSettingsOpen, setView, setRail, setHistoryOpen,
+    selectNote, createNote, togglePin, trashNote, toggleArchive, selectedId, folders, importData, showToast,
   } = useApp()
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
@@ -47,14 +47,23 @@ export function CommandPalette() {
         else window.open('options.html', '_blank')
       },
     },
+    { id: 'library', title: 'Browse all notes', subtitle: 'Search, notebooks and archive', icon: Files, run: () => setRail('library') },
+    { id: 'trash-view', title: 'Open trash', subtitle: 'Restore or permanently delete notes', icon: Trash2, run: () => setRail('trash') },
+    { id: 'stats', title: 'Show writing statistics', subtitle: 'Words, notes and activity', icon: BarChart3, run: () => setView({ kind: 'stats' }) },
     ...(selectedId ? [{
       id: 'pin', title: 'Toggle pin on current note', subtitle: 'Keep it close at hand', icon: Pin,
       run: () => togglePin(selectedId),
     }, {
+      id: 'history', title: 'Version history of current note', subtitle: 'Preview and restore earlier versions', icon: History,
+      run: () => setHistoryOpen(true),
+    }, {
+      id: 'archive', title: 'Archive / unarchive current note', subtitle: 'Hide it without deleting', icon: Archive,
+      run: () => toggleArchive(selectedId),
+    }, {
       id: 'trash', title: 'Move current note to trash', subtitle: 'You can restore it later', icon: Trash2,
       run: () => trashNote(selectedId),
     }] : []),
-  ], [settings, notes, folders, selectedId, createNote, setSettings, setSettingsOpen, togglePin, trashNote, showToast])
+  ], [settings, notes, folders, selectedId, createNote, setSettings, setSettingsOpen, togglePin, trashNote, showToast, setRail, setView, setHistoryOpen, toggleArchive])
 
   const noteResults = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -78,7 +87,9 @@ export function CommandPalette() {
 
   const run = (item: (typeof items)[number]) => {
     if (item.kind === 'action') item.action.run()
-    else { setView({ kind: 'notes' }); selectNote(item.note.id) }
+    else selectNote(item.note.id)
+    // The import action opens a file picker that lives inside the palette; keep it mounted until a file is chosen.
+    if (item.kind === 'action' && item.action.id === 'import') return
     setPaletteOpen(false)
   }
 
@@ -156,15 +167,16 @@ export function CommandPalette() {
         accept="application/json,.json"
         hidden
         onChange={async (e) => {
-          const file = e.target.files?.[0]
+          const input = e.currentTarget
+          const file = input.files?.[0]
+          input.value = ''
           if (!file) return
           try {
-            const result = await parseBackup(file)
-            importData(result, 'merge')
+            importData(await parseBackup(file), 'merge')
           } catch (err) {
             showToast(err instanceof Error ? err.message : 'Import failed', 'error')
           }
-          e.target.value = ''
+          setPaletteOpen(false)
         }}
       />
     </div>

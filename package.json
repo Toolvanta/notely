@@ -1,8 +1,8 @@
 {
   "name": "notely-advanced-notepad",
   "private": true,
-  "version": "1.0.0",
-  "description": "Notely — a beautiful, feature-rich notepad browser extension",
+  "version": "1.1.0",
+  "description": "Notely - a beautiful, feature-rich notepad browser extension",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,9 +10,20 @@
     "build:fast": "vite build",
     "icons": "node scripts/generate-icons.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc -b --pretty"
+    "typecheck": "tsc -b --pretty",
+    "package": "npm run build && node scripts/package.mjs"
   },
   "dependencies": {
+    "@tiptap/extension-highlight": "^3.35.0",
+    "@tiptap/extension-list": "^3.35.0",
+    "@tiptap/extension-subscript": "^3.35.0",
+    "@tiptap/extension-superscript": "^3.35.0",
+    "@tiptap/extension-text-align": "^3.35.0",
+    "@tiptap/extensions": "^3.35.0",
+    "@tiptap/pm": "^3.35.0",
+    "@tiptap/react": "^3.35.0",
+    "@tiptap/starter-kit": "^3.35.0",
+    "dompurify": "^3.5.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -25,5 +36,21 @@
     "@vitejs/plugin-react": "^5.0.4",
     "typescript": "^5.7.2",
     "vite": "^7.1.0"
+  },
+  "homepage": "https://github.com/Toolvanta/notely#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Toolvanta/notely.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Toolvanta/notely/issues"
+  },
+  "author": {
+    "name": "Shoaib Arif",
+    "url": "https://shoaibarif.vercel.app/"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "http://toolenhancer.com/"
   }
 }

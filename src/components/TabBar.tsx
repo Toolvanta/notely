@@ -1,5 +1,5 @@
 import { useState, type MouseEvent } from 'react'
-import { Copy, MoreHorizontal, Pencil, Pin, Plus, Trash2 } from 'lucide-react'
+import { Copy, MoreHorizontal, Pencil, Pin, Trash2, X } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { cn, colorHex, NOTE_COLORS, stripHtml } from '../lib/utils'
 import type { Note } from '../lib/types'
@@ -23,16 +23,18 @@ type TabMenu = { id: string; top: number; left: number } | null
 export function TabBar() {
   const {
     notes, tabs, pinnedTabs, selectedId,
-    selectNote, closeTab, toggleTabPin, createNote,
-    updateNote, duplicateNote, deleteForever,
+    selectNote, closeTab, closeOtherTabs, toggleTabPin,
+    updateNote, duplicateNote, trashNote,
   } = useApp()
   const [menu, setMenu] = useState<TabMenu>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [titleDraft, setTitleDraft] = useState('')
 
+  // Pinned tabs first; notes that were trashed or archived elsewhere drop out of the rail.
   const visible = tabs
     .map((id) => notes.find((n) => n.id === id))
-    .filter((n): n is NonNullable<typeof n> => Boolean(n))
+    .filter((n): n is NonNullable<typeof n> => Boolean(n) && (!n!.trashed || n!.id === selectedId))
+    .sort((a, b) => Number(pinnedTabs.includes(b.id)) - Number(pinnedTabs.includes(a.id)))
 
   const onAuxClick = (e: MouseEvent, id: string) => {
     if (e.button === 1) { e.preventDefault(); closeTab(id) }
@@ -83,15 +85,10 @@ export function TabBar() {
 
   return (
     <nav className="side-tabs" aria-label="Open tabs">
-      <div className="side-tabs__header">
-        <button className="nav-group__add" title="New note" onClick={() => createNote()}>
-          <Plus size={14} />
-        </button>
-      </div>
 
       <div className="side-tabs__list">
         {visible.length === 0 ? (
-          <div className="side-tabs__empty">No open tabs — open a note to begin.</div>
+          <div className="side-tabs__empty">No open tabs - open a note to begin.</div>
         ) : visible.map((note, index) => {
           const pinned = pinnedTabs.includes(note.id)
           const dotColor = colorHex(note.color ?? NOTE_COLORS[index % NOTE_COLORS.length])
@@ -102,36 +99,42 @@ export function TabBar() {
               className="side-tab-wrap"
               onContextMenu={(e) => onContextMenu(e, note.id)}
             >
-              <button
-                className={cn('side-tab', selectedId === note.id && 'side-tab--active')}
-                onClick={() => renamingId !== note.id && selectNote(note.id)}
-                onAuxClick={(e) => onAuxClick(e, note.id)}
-                title={title}
-              >
-                <span className="side-tab__dot" style={{ background: dotColor }} />
-                {renamingId === note.id ? (
+              {renamingId === note.id ? (
+                // Rendered instead of the tab button: an <input> must not live inside a <button>.
+                <div className={cn('side-tab', 'side-tab--renaming', selectedId === note.id && 'side-tab--active')}>
+                  <span className="side-tab__dot" style={{ background: dotColor }} />
                   <input
                     className="side-tab__rename"
                     autoFocus
+                    aria-label="Note title"
                     value={titleDraft}
                     onChange={(e) => setTitleDraft(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
                     onBlur={() => commitRename(note.id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') { e.preventDefault(); commitRename(note.id) }
-                      if (e.key === 'Escape') { e.preventDefault(); setRenamingId(null) }
+                      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setRenamingId(null) }
                     }}
                   />
-                ) : (
+                </div>
+              ) : (
+                <button
+                  className={cn('side-tab', selectedId === note.id && 'side-tab--active')}
+                  onClick={() => selectNote(note.id)}
+                  onAuxClick={(e) => onAuxClick(e, note.id)}
+                  onMouseDown={(e) => { if (e.button === 1) e.preventDefault() /* no autoscroll */ }}
+                  title={title}
+                >
+                  <span className="side-tab__dot" style={{ background: dotColor }} />
                   <span className="side-tab__title">{title}</span>
-                )}
-                {pinned && <Pin size={11} className="side-tab__pin" />}
-              </button>
+                  {pinned && <Pin size={11} className="side-tab__pin" />}
+                </button>
+              )}
 
               <button
                 className="side-tab__delete"
-                title={`Delete “${title}”`}
-                onClick={() => deleteForever(note.id)}
+                title={`Move “${title}” to trash`}
+                aria-label={`Move “${title}” to trash`}
+                onClick={() => trashNote(note.id)}
               >
                 <Trash2 size={12} />
               </button>
@@ -158,9 +161,11 @@ export function TabBar() {
                     <button onClick={() => run(() => toggleTabPin(note.id))}>
                       <Pin size={13} /> {pinned ? 'Unpin tab' : 'Pin tab'}
                     </button>
+                    <button onClick={() => run(() => closeTab(note.id))}><X size={13} /> Close tab</button>
+                    <button onClick={() => run(() => closeOtherTabs(note.id))}><X size={13} /> Close other tabs</button>
                     <div className="popover__sep" />
-                    <button className="danger" onClick={() => run(() => deleteForever(note.id))}>
-                      <Trash2 size={13} /> Delete note
+                    <button className="danger" onClick={() => run(() => trashNote(note.id))}>
+                      <Trash2 size={13} /> Move to trash
                     </button>
                   </div>
                 </>
